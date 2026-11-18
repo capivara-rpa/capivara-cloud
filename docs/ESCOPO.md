@@ -7,7 +7,7 @@ pessoas que precisam conectar sistemas sem escrever um projeto inteiro. A
 experiência é parecida com Zapier, Power Automate e n8n: um canvas visual,
 blocos de gatilho/ação e execução observável.
 
-O produto é separado do Capivara / RPA Brasil. O Control Room orquestra robôs
+O produto é separado do Capivara / RPA Brasil. A Lagoa orquestra robôs
 em máquinas; o Cloud orquestra chamadas de API, dados e notificações.
 
 ## Público
@@ -15,7 +15,7 @@ em máquinas; o Cloud orquestra chamadas de API, dados e notificações.
 - Analistas de operações que vivem colando dados entre planilhas e sistemas.
 - Pessoas de produto que precisam integrar ferramentas sem depender de sprint.
 - Devs que querem um ponto de partida open source, em português, para automação.
-- Comunidade Capivara que já usa o Control Room e quer integrar sistemas web.
+- Comunidade Capivara que já usa a Lagoa e quer integrar sistemas web.
 
 ## MVP (agora)
 
@@ -34,7 +34,7 @@ em máquinas; o Cloud orquestra chamadas de API, dados e notificações.
 - Autenticação de usuários e multiusuário.
 - Times, organizações e RBAC.
 - Execução distribuída e filas.
-- Agendamento cron (o Control Room já cobre isso no outro produto).
+- Agendamento cron (a Lagoa já cobre isso no outro produto).
 - Marketplace de conectores.
 - Cobrança.
 - Editor de código dentro do navegador.

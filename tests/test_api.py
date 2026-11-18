@@ -17,7 +17,20 @@ def test_catalogo_e_modelos(cliente):
     catalogo = cliente.get("/api/conectores")
     assert catalogo.status_code == 200
     tipos = {item["tipo"] for item in catalogo.json()["conectores"]}
-    assert {"gatilho_manual", "gatilho_webhook", "http", "email", "excel", "condicao"} <= tipos
+    assert {
+        "gatilho_manual",
+        "gatilho_webhook",
+        "http",
+        "email",
+        "excel",
+        "condicao",
+        "microsoft_graph_email",
+        "microsoft_graph_excel",
+        "variavel",
+        "transformar",
+    } <= tipos
+    assert "Microsoft 365" in catalogo.json()["conjuntos"]
+    assert catalogo.json()["conjuntos"][0] == "Todos"
 
     modelos = cliente.get("/api/credenciais/modelos")
     assert modelos.status_code == 200

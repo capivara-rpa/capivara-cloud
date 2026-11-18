@@ -3,7 +3,7 @@
 Automação de APIs em português, com workflows visuais, conectores prontos,
 credenciais cifradas e execução observável.
 
-> Produto separado do **Capivara / RPA Brasil**. O Control Room continua sendo
+> Produto separado do **Capivara / RPA Brasil**. A Lagoa continua sendo
 > o orquestrador de robôs; o Cloud é a plataforma API-first estilo Zapier,
 > Power Automate e n8n.
 
@@ -13,9 +13,12 @@ credenciais cifradas e execução observável.
 - Workflows com **gatilho manual** e **webhook** (`POST /api/webhooks/{id}`).
 - Execução com **trace por passo** (entrada, saída, duração e erro).
 - Credenciais **cifradas com Fernet**; a API só devolve valores mascarados.
-- Catálogo com conectores de e-mail, Excel, Slack, Teams, Google Sheets,
-  HTTP, Telegram, Discord, Notion, Airtable, GitHub, Stripe, OpenAI, WhatsApp,
+- Catálogo com **28 conectores**: e-mail SMTP/IMAP (envio, leitura e anexos),
+  Microsoft 365 via Graph (Outlook, Teams, Calendar, Excel Online e OneDrive),
+  Excel local, Slack, Teams, Google Sheets, HTTP, Telegram, Discord, Notion,
+  Airtable, GitHub, Stripe, OpenAI, WhatsApp, variáveis, transformações,
   condição, JSON, espera, log e fim.
+- Paleta com filtros por conjunto e **logos reais** das tecnologias.
 - **Swagger** em `/docs`, ReDoc em `/redoc` e OpenAPI em `/openapi.json`.
 - Bloqueio de SSRF para URLs locais/privadas (liberável em desenvolvimento).
 - Tema claro/escuro e identidade visual Capivara.

@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db
 from .config import DESCRICAO, HOST, NOME, PASTA_ESTATICOS, PORTA, VERSAO
-from .connectors import CATALOGO
+from .connectors import CATALOGO, CONJUNTOS_ORDEM
 from .engine import ErroWorkflow, executar_workflow
 from .exemplos import grafo_novo
 from .schemas import (
@@ -92,7 +92,11 @@ def configuracao() -> dict[str, Any]:
 
 @app.get("/api/conectores", tags=["Conectores"], summary="Catálogo de conectores")
 def conectores() -> dict[str, Any]:
-    return {"total": len(CATALOGO), "conectores": CATALOGO}
+    return {
+        "total": len(CATALOGO),
+        "conjuntos": CONJUNTOS_ORDEM,
+        "conectores": CATALOGO,
+    }
 
 
 @app.get(

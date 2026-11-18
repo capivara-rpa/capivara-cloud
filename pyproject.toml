@@ -36,7 +36,7 @@ Community = "https://github.com/capivara-rpa/capivara-cloud-community"
 include = ["app*"]
 
 [tool.setuptools.package-data]
-app = ["static/*", "static/vendor/*", "static/img/*"]
+app = ["static/*", "static/vendor/*", "static/img/*", "static/img/logos/*"]
 
 [tool.ruff]
 line-length = 100

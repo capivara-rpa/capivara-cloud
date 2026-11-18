@@ -1,5 +1,7 @@
 const estado = {
   conectores: [],
+  conjuntos: [],
+  conjuntoAtivo: "Todos",
   workflows: [],
   estatisticas: null,
   credenciais: [],
@@ -116,6 +118,7 @@ async function carregarTudo() {
     ]);
 
     estado.conectores = conectores.conectores || [];
+    estado.conjuntos = conectores.conjuntos || [];
     estado.workflows = workflows || [];
     estado.estatisticas = estatisticas;
     estado.credenciais = credenciais || [];
@@ -244,23 +247,33 @@ function classeCategoria(categoria) {
 function resumoNo(conector, config) {
   if (config.url) return `${config.metodo || "GET"} ${truncar(config.url, 38)}`;
   if (config.para) return `para ${truncar(config.para, 34)}`;
+  if (config.team_id) return `canal ${truncar(config.channel_id || config.team_id, 30)}`;
+  if (config.assunto) return truncar(config.assunto, 40);
   if (config.mensagem) return truncar(config.mensagem, 40);
   if (config.texto) return truncar(config.texto, 40);
   if (config.caminho) return truncar(config.caminho, 40);
   if (config.tabela) return `tabela ${truncar(config.tabela, 30)}`;
+  if (config.acao) return `${config.acao}${config.nome ? ` · ${truncar(config.nome, 24)}` : ""}`;
   if (config.nome) return truncar(config.nome, 40);
   return truncar(conector.descricao, 42);
+}
+
+function logoNo(conector) {
+  if (conector.logo) {
+    return `<span class="logo-icone" style="--logo:url(${escapar(conector.logo)})"></span>`;
+  }
+  return `<span class="logo-emoji">${escapar(conector.icone || "◇")}</span>`;
 }
 
 function htmlNo(conector, config) {
   return `
     <div class="wf-node wf-${classeCategoria(conector.categoria)}">
-      <div class="wf-node-icone">${escapar(conector.icone || "◇")}</div>
+      <div class="wf-node-icone">${logoNo(conector)}</div>
       <div class="wf-node-texto">
         <strong>${escapar(conector.nome)}</strong>
         <small>${escapar(resumoNo(conector, config || {}))}</small>
       </div>
-      <span class="wf-node-categoria">${escapar(conector.categoria)}</span>
+      <span class="wf-node-categoria">${escapar(conector.conjunto || conector.categoria)}</span>
     </div>
   `;
 }
@@ -317,11 +330,35 @@ function atualizarStatusWorkflow() {
   document.getElementById("btn-excluir").disabled = !temFluxo;
 }
 
+function renderizarConjuntos() {
+  const alvo = document.getElementById("paleta-conjuntos");
+  const conjuntos = ["Todos", ...(estado.conjuntos || []).filter((item) => item !== "Todos")];
+  alvo.innerHTML = conjuntos
+    .map(
+      (conjunto) => `
+        <button type="button" class="chip-conjunto ${conjunto === estado.conjuntoAtivo ? "ativo" : ""}" data-conjunto="${escapar(conjunto)}">
+          ${escapar(conjunto)}
+        </button>
+      `,
+    )
+    .join("");
+  alvo.querySelectorAll("[data-conjunto]").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      estado.conjuntoAtivo = botao.dataset.conjunto;
+      renderizarPaleta();
+    });
+  });
+}
+
 function renderizarPaleta() {
   const lista = document.getElementById("paleta-lista");
   const busca = document.getElementById("busca-paleta").value.trim().toLowerCase();
+  renderizarConjuntos();
   const filtrados = estado.conectores.filter((conector) => {
-    const texto = `${conector.nome} ${conector.descricao} ${conector.categoria}`.toLowerCase();
+    if (estado.conjuntoAtivo !== "Todos" && conector.conjunto !== estado.conjuntoAtivo) {
+      return false;
+    }
+    const texto = `${conector.nome} ${conector.descricao} ${conector.categoria} ${conector.conjunto}`.toLowerCase();
     return !busca || texto.includes(busca);
   });
 
@@ -332,19 +369,20 @@ function renderizarPaleta() {
 
   const grupos = {};
   for (const conector of filtrados) {
-    if (!grupos[conector.categoria]) grupos[conector.categoria] = [];
-    grupos[conector.categoria].push(conector);
+    const grupo = conector.conjunto || conector.categoria;
+    if (!grupos[grupo]) grupos[grupo] = [];
+    grupos[grupo].push(conector);
   }
 
   lista.innerHTML = Object.entries(grupos)
     .map(
-      ([categoria, conectores]) => `
-        <p class="paleta-grupo">${escapar(categoria)}</p>
+      ([grupo, conectores]) => `
+        <p class="paleta-grupo">${escapar(grupo)}</p>
         ${conectores
           .map(
             (conector) => `
               <div class="paleta-item" draggable="true" data-tipo="${escapar(conector.tipo)}" title="${escapar(conector.descricao)}">
-                <span class="paleta-icone" style="color:${escapar(conector.cor || "#1FA463")}">${escapar(conector.icone || "◇")}</span>
+                <span class="paleta-icone">${logoNo(conector)}</span>
                 <div>
                   <strong>${escapar(conector.nome)}</strong>
                   <small>${escapar(truncar(conector.descricao, 38))}</small>
@@ -393,10 +431,10 @@ function renderizarDashboard() {
     .map(
       (conector) => `
         <div class="conector-mini">
-          <span class="conector-mini-icone" style="color:${escapar(conector.cor || "#1FA463")}">${escapar(conector.icone || "◇")}</span>
+          <span class="conector-mini-icone">${logoNo(conector)}</span>
           <div>
             <strong>${escapar(conector.nome)}</strong>
-            <small>${escapar(conector.categoria)}</small>
+            <small>${escapar(conector.conjunto || conector.categoria)}</small>
           </div>
         </div>
       `,
@@ -430,7 +468,6 @@ function renderizarConectores() {
   }
   catalogo.innerHTML = estado.conectores
     .map((conector) => {
-      const cor = conector.cor || "#1FA463";
       const credencial = conector.credencial_tipo
         ? `<span class="tag cred">${escapar(conector.credencial_tipo)}</span>`
         : "";
@@ -440,10 +477,10 @@ function renderizarConectores() {
       return `
         <article class="conector-card">
           <div class="conector-card-topo">
-            <span class="conector-card-icone" style="background:${cor}1a;color:${cor}">${escapar(conector.icone || "◇")}</span>
+            <span class="conector-card-icone">${logoNo(conector)}</span>
             <div>
               <h3>${escapar(conector.nome)}</h3>
-              <span class="tag">${escapar(conector.categoria)}</span>
+              <span class="tag">${escapar(conector.conjunto || conector.categoria)}</span>
             </div>
           </div>
           <p>${escapar(conector.descricao)}</p>
@@ -663,9 +700,24 @@ function limparInspetor() {
   document.getElementById("inspetor-conteudo").innerHTML = "";
 }
 
+function campoVisivel(campo, config) {
+  const regras = campo.mostrar_se || {};
+  return Object.entries(regras).every(([nome, valores]) => {
+    const esperados = (Array.isArray(valores) ? valores : [valores]).map(String);
+    return esperados.includes(String(config[nome] ?? ""));
+  });
+}
+
+function campoControlaOutros(conector, nome) {
+  return (conector.campos || []).some(
+    (campo) => campo.mostrar_se && Object.prototype.hasOwnProperty.call(campo.mostrar_se, nome),
+  );
+}
+
 function renderizarInspetor(no, conector) {
   const config = no.data.config || {};
   const campos = (conector.campos || [])
+    .filter((campo) => campoVisivel(campo, config))
     .map((campo) => {
       if (campo.tipo === "credencial") return renderizarCredencialNoCampo(campo, conector, config);
       return renderizarCampo(campo, config);
@@ -697,7 +749,12 @@ function renderizarInspetor(no, conector) {
     elemento.addEventListener(evento, () => {
       let valor = elemento.type === "checkbox" ? elemento.checked : elemento.value;
       if (elemento.dataset.tipoCampo === "number" && valor !== "") valor = Number(valor);
-      atualizarConfigNo(no.id, elemento.dataset.campo, valor);
+      const campo = elemento.dataset.campo;
+      atualizarConfigNo(no.id, campo, valor);
+      if (campoControlaOutros(conector, campo)) {
+        const atualizado = estado.editor.getNodeFromId(no.id);
+        if (atualizado) renderizarInspetor(atualizado, conector);
+      }
     });
   });
 
