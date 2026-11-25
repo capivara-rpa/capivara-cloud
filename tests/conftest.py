@@ -13,6 +13,7 @@ os.environ["CAPIVARA_CLOUD_BANCO"] = str(PASTA_TESTE / "cloud.db")
 os.environ["CAPIVARA_CLOUD_CHAVE"] = str(PASTA_TESTE / "cloud.key")
 os.environ["CAPIVARA_CLOUD_KEY"] = base64.urlsafe_b64encode(os.urandom(32)).decode()
 os.environ["CAPIVARA_CLOUD_PERMITIR_REDE_LOCAL"] = "false"
+os.environ["CAPIVARA_CLOUD_AGENDADOR"] = "false"
 
 
 @pytest.fixture(autouse=True)

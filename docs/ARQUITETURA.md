@@ -8,8 +8,9 @@ Navegador (Drawflow)
         ▼
 FastAPI (app/main.py)
         │
-        ├── SQLite (app/db.py) ── workflows, execuções, passos, credenciais
+        ├── SQLite (app/db.py) ── workflows, execuções, passos, credenciais, agendamentos
         ├── Motor (app/engine.py) ── percorre o grafo e chama conectores
+        ├── Agendador (app/agendador.py) ── thread que dispara fluxos vencidos
         ├── Conectores (app/connectors.py)
         ├── Cofre (app/security.py) ── Fernet + máscara
         └── Template (app/template.py) ── {{ variáveis }}, JSON, URL

@@ -9,12 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db
+from . import agendador, db
 from .config import DESCRICAO, HOST, NOME, PASTA_ESTATICOS, PORTA, VERSAO
 from .connectors import CATALOGO, CONJUNTOS_ORDEM
 from .engine import ErroWorkflow, executar_workflow
 from .exemplos import grafo_novo
 from .schemas import (
+    AgendamentoAtualizacao,
+    AgendamentoEntrada,
     CredencialEntrada,
     ExecucaoEntrada,
     WorkflowAtualizacao,
@@ -25,7 +27,11 @@ from .schemas import (
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.iniciar_banco()
-    yield
+    agendador.iniciar_agendador()
+    try:
+        yield
+    finally:
+        agendador.parar_agendador()
 
 
 app = FastAPI(
@@ -42,6 +48,7 @@ app = FastAPI(
         {"name": "Workflows", "description": "CRUD e execução dos fluxos."},
         {"name": "Execuções", "description": "Histórico e trace por passo."},
         {"name": "Credenciais", "description": "Segredos cifrados em repouso."},
+        {"name": "Agendamentos", "description": "Execuções recorrentes de fluxos."},
     ],
 )
 
@@ -246,6 +253,120 @@ def apagar_credencial(id_credencial: str) -> dict[str, Any]:
     if not db.apagar_credencial(id_credencial):
         raise HTTPException(status_code=404, detail="Credencial não encontrada.")
     return {"removido": True, "id": id_credencial}
+
+
+def _expressao_e_proxima(tipo: str, expressao: str) -> tuple[str, str]:
+    try:
+        normalizada = agendador.validar_expressao(tipo, expressao)
+        return normalizada, agendador.proxima_execucao(tipo, normalizada)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/agendamentos", tags=["Agendamentos"], summary="Lista agendamentos")
+def listar_agendamentos() -> list[dict[str, Any]]:
+    return db.listar_agendamentos()
+
+
+@app.post(
+    "/api/agendamentos",
+    tags=["Agendamentos"],
+    summary="Cria agendamento recorrente",
+    status_code=201,
+)
+def criar_agendamento(entrada: AgendamentoEntrada) -> dict[str, Any]:
+    if not db.obter_workflow(entrada.workflow_id):
+        raise HTTPException(status_code=404, detail="Fluxo não encontrado.")
+    expressao, proxima = _expressao_e_proxima(entrada.tipo, entrada.expressao)
+    return db.criar_agendamento(
+        entrada.nome,
+        entrada.workflow_id,
+        entrada.tipo,
+        expressao,
+        proxima,
+        entrada.entrada,
+        entrada.ativo,
+    )
+
+
+@app.post(
+    "/api/agendamentos/verificar",
+    tags=["Agendamentos"],
+    summary="Verifica agendamentos vencidos agora",
+)
+def verificar_agendamentos() -> dict[str, int]:
+    return agendador.verificar_agendamentos()
+
+
+@app.get(
+    "/api/agendamentos/{id_agendamento}",
+    tags=["Agendamentos"],
+    summary="Detalha agendamento",
+)
+def obter_agendamento(id_agendamento: str) -> dict[str, Any]:
+    agendamento = db.obter_agendamento(id_agendamento)
+    if not agendamento:
+        raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
+    return agendamento
+
+
+@app.put(
+    "/api/agendamentos/{id_agendamento}",
+    tags=["Agendamentos"],
+    summary="Atualiza agendamento",
+)
+def atualizar_agendamento(
+    id_agendamento: str,
+    entrada: AgendamentoAtualizacao,
+) -> dict[str, Any]:
+    atual = db.obter_agendamento(id_agendamento)
+    if not atual:
+        raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
+    tipo = entrada.tipo or atual["tipo"]
+    expressao = entrada.expressao or atual["expressao"]
+    proxima = None
+    if (
+        entrada.tipo is not None
+        or entrada.expressao is not None
+        or (entrada.ativo is True and not atual["ativo"])
+    ):
+        expressao, proxima = _expressao_e_proxima(tipo, expressao)
+    atualizado = db.atualizar_agendamento(
+        id_agendamento,
+        nome=entrada.nome,
+        tipo=tipo,
+        expressao=expressao,
+        entrada=entrada.entrada,
+        ativo=entrada.ativo,
+        proxima_execucao=proxima,
+    )
+    return atualizado
+
+
+@app.delete(
+    "/api/agendamentos/{id_agendamento}",
+    tags=["Agendamentos"],
+    summary="Remove agendamento",
+)
+def apagar_agendamento(id_agendamento: str) -> dict[str, Any]:
+    if not db.apagar_agendamento(id_agendamento):
+        raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
+    return {"removido": True, "id": id_agendamento}
+
+
+@app.post(
+    "/api/agendamentos/{id_agendamento}/executar",
+    tags=["Agendamentos"],
+    summary="Executa agendamento agora",
+)
+def executar_agendamento(id_agendamento: str) -> dict[str, Any]:
+    agendamento = db.obter_agendamento(id_agendamento)
+    if not agendamento:
+        raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
+    try:
+        return agendador.executar_agendamento(agendamento)
+    except (ValueError, ErroWorkflow) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def main() -> None:

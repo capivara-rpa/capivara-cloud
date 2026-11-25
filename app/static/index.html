@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/vendor/drawflow.min.css">
-  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/styles.css?v=4">
 </head>
 <body>
   <div class="app">
@@ -30,6 +30,7 @@
           <li><button class="nav-link ativo" data-view="dashboard"><span class="nav-icone">◈</span> Visão geral</button></li>
           <li><button class="nav-link" data-view="fluxos"><span class="nav-icone">⚡</span> Fluxos</button></li>
           <li><button class="nav-link" data-view="execucoes"><span class="nav-icone">▤</span> Execuções</button></li>
+          <li><button class="nav-link" data-view="agendamentos"><span class="nav-icone">◷</span> Agendamentos</button></li>
           <li><button class="nav-link" data-view="conexoes"><span class="nav-icone">◌</span> Conexões</button></li>
           <li><button class="nav-link" data-view="credenciais"><span class="nav-icone">⌘</span> Credenciais</button></li>
         </ul>
@@ -187,6 +188,95 @@
         </div>
       </section>
 
+      <section id="view-agendamentos" class="view oculto">
+        <div class="barra-acoes">
+          <button type="button" class="botao-primario" id="btn-novo-agendamento">+ Novo agendamento</button>
+          <div class="segmentado" role="group" aria-label="Visualização dos agendamentos">
+            <button type="button" class="botao-secundario ativo" id="btn-agenda-lista">Lista</button>
+            <button type="button" class="botao-secundario" id="btn-agenda-calendario">Calendário</button>
+          </div>
+          <button type="button" class="botao-secundario" id="btn-verificar-agendamentos">Verificar agora</button>
+          <button type="button" class="botao-secundario" id="btn-atualizar-agendamentos">Atualizar</button>
+          <span class="dica">Disparos automáticos por intervalo, horário ou cron.</span>
+        </div>
+
+        <form id="form-agendamento" class="form-agendamento oculto">
+          <div class="campo">
+            <label for="agenda-workflow">Fluxo</label>
+            <select id="agenda-workflow" required></select>
+          </div>
+          <div class="campo">
+            <label for="agenda-nome">Nome</label>
+            <input id="agenda-nome" required placeholder="Relatório diário" autocomplete="off">
+          </div>
+          <div class="campo">
+            <label for="agenda-tipo">Recorrência</label>
+            <select id="agenda-tipo">
+              <option value="intervalo">A cada…</option>
+              <option value="diario">Diariamente às…</option>
+              <option value="cron">Cron (avançado)…</option>
+            </select>
+          </div>
+          <div class="campo" id="campo-intervalo">
+            <label for="agenda-intervalo">Intervalo (minutos)</label>
+            <input type="number" id="agenda-intervalo" min="1" value="15">
+          </div>
+          <div class="campo oculto" id="campo-hora">
+            <label for="agenda-hora">Horário</label>
+            <input type="time" id="agenda-hora" value="09:00">
+          </div>
+          <div class="campo oculto" id="campo-cron">
+            <label for="agenda-cron">Expressão cron</label>
+            <input type="text" id="agenda-cron" value="0 9 * * seg-sex" placeholder="*/15 9-18 * * seg-sex">
+          </div>
+          <div class="campo campo-largo oculto" id="campo-dias">
+            <label>Dias da semana (cron)</label>
+            <div class="dias-semana" id="agenda-dias">
+              <label class="dia"><input type="checkbox" value="1" checked> Seg</label>
+              <label class="dia"><input type="checkbox" value="2" checked> Ter</label>
+              <label class="dia"><input type="checkbox" value="3" checked> Qua</label>
+              <label class="dia"><input type="checkbox" value="4" checked> Qui</label>
+              <label class="dia"><input type="checkbox" value="5" checked> Sex</label>
+              <label class="dia"><input type="checkbox" value="6"> Sáb</label>
+              <label class="dia"><input type="checkbox" value="7"> Dom</label>
+            </div>
+            <p class="ajuda">Os dias ajustam o último campo da expressão cron.</p>
+          </div>
+          <details class="campo campo-largo">
+            <summary>Dados de entrada (JSON)</summary>
+            <textarea id="agenda-entrada" rows="4" spellcheck="false">{}</textarea>
+          </details>
+          <div class="campo campo-check">
+            <input type="checkbox" id="agenda-ativo" checked>
+            <label for="agenda-ativo">Ativo</label>
+          </div>
+          <div class="campo campo-botao">
+            <button type="submit" class="botao-primario">Agendar</button>
+            <button type="button" class="botao-secundario" id="agenda-cancelar">Cancelar</button>
+          </div>
+        </form>
+
+        <div class="tabela-envolucro" id="tabela-agendamentos">
+          <table class="tabela">
+            <thead>
+              <tr><th>#</th><th>Fluxo</th><th>Quando</th><th>Próxima</th><th>Execuções</th><th>Status</th><th>Ações</th></tr>
+            </thead>
+            <tbody id="corpo-agendamentos"></tbody>
+          </table>
+        </div>
+
+        <div class="calendario oculto" id="calendario-agendamentos">
+          <div class="calendario-topo">
+            <button type="button" class="botao-secundario" id="cal-agenda-prev" title="Mês anterior">‹</button>
+            <h3 id="cal-agenda-titulo">—</h3>
+            <button type="button" class="botao-secundario" id="cal-agenda-hoje">Hoje</button>
+            <button type="button" class="botao-secundario" id="cal-agenda-next" title="Próximo mês">›</button>
+          </div>
+          <div class="calendario-legenda" id="cal-agenda-legenda"></div>
+          <div class="calendario-grade" id="cal-agenda-grade"></div>
+        </div>
+      </section>
+
       <section id="view-conexoes" class="view oculto">
         <div class="introducao">
           <div>
@@ -276,6 +366,6 @@
   <div id="toast" class="toast oculto" role="status"></div>
 
   <script src="/static/vendor/drawflow.min.js"></script>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=4"></script>
 </body>
 </html>

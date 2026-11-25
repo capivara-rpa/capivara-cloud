@@ -7,6 +7,10 @@ const estado = {
   credenciais: [],
   modelos: [],
   execucoes: [],
+  execucoesAgendadas: [],
+  agendamentos: [],
+  visaoAgenda: "lista",
+  calendarioAgenda: { ano: new Date().getFullYear(), mes: new Date().getMonth() + 1 },
   workflowAtual: null,
   noSelecionado: null,
   execucaoAtual: null,
@@ -23,6 +27,7 @@ const TITULOS = {
   dashboard: ["Visão geral", "Seu centro de automação de APIs, em português."],
   fluxos: ["Fluxos", "Monte o fluxo no canvas e configure cada bloco."],
   execucoes: ["Execuções", "Histórico completo com trace por passo."],
+  agendamentos: ["Agendamentos", "Disparos automáticos por intervalo, horário ou cron — como na Lagoa."],
   conexoes: ["Conexões", "Conectores prontos e documentação pública."],
   credenciais: ["Credenciais", "Segredos cifrados em repouso com Fernet."],
   api: ["API / Swagger", "Integre por HTTP, webhook ou OpenAPI."],
@@ -101,6 +106,7 @@ function trocarView(view, atualizarHash = true) {
     window.setTimeout(() => estado.editor?.zoom_refresh(), 30);
   }
   if (view === "execucoes") carregarExecucoes();
+  if (view === "agendamentos") carregarAgendamentos();
   if (view === "conexoes") renderizarConectores();
   if (view === "credenciais") renderizarCredenciais();
   if (view === "api") renderizarEndpoints();
@@ -108,14 +114,16 @@ function trocarView(view, atualizarHash = true) {
 
 async function carregarTudo() {
   try {
-    const [config, conectores, workflows, estatisticas, credenciais, modelos] = await Promise.all([
-      api("/api/config"),
-      api("/api/conectores"),
-      api("/api/workflows"),
-      api("/api/estatisticas"),
-      api("/api/credenciais"),
-      api("/api/credenciais/modelos"),
-    ]);
+    const [config, conectores, workflows, estatisticas, credenciais, modelos, agendamentos] =
+      await Promise.all([
+        api("/api/config"),
+        api("/api/conectores"),
+        api("/api/workflows"),
+        api("/api/estatisticas"),
+        api("/api/credenciais"),
+        api("/api/credenciais/modelos"),
+        api("/api/agendamentos"),
+      ]);
 
     estado.conectores = conectores.conectores || [];
     estado.conjuntos = conectores.conjuntos || [];
@@ -123,6 +131,7 @@ async function carregarTudo() {
     estado.estatisticas = estatisticas;
     estado.credenciais = credenciais || [];
     estado.modelos = modelos || [];
+    estado.agendamentos = agendamentos || [];
 
     document.getElementById("versao-app").textContent = `v${config.versao}`;
     document.getElementById("rodape-versao").textContent = `v${config.versao}`;
@@ -133,6 +142,7 @@ async function carregarTudo() {
     renderizarConectores();
     preencherTiposCredencial();
     renderizarListaCredenciais();
+    renderizarAgendamentos();
     renderizarEndpoints();
     atualizarStatusWorkflow();
   } catch (erro) {
@@ -1018,6 +1028,302 @@ async function removerCredencial(id) {
   }
 }
 
+const DIAS_SEMANA_AGENDA = ["", "seg", "ter", "qua", "qui", "sex", "sab", "dom"];
+
+function corStatusAgenda(status) {
+  if (status === "concluido") return "var(--sucesso)";
+  if (status === "erro") return "var(--perigo)";
+  return "var(--info)";
+}
+
+function preencherWorkflowsAgendamento() {
+  const seletor = document.getElementById("agenda-workflow");
+  const anterior = seletor.value;
+  seletor.innerHTML = estado.workflows.length
+    ? estado.workflows
+        .map((workflow) => `<option value="${escapar(workflow.id)}">${escapar(workflow.nome)}</option>`)
+        .join("")
+    : '<option value="">Nenhum fluxo</option>';
+  seletor.disabled = !estado.workflows.length;
+  if (anterior && estado.workflows.some((workflow) => workflow.id === anterior)) {
+    seletor.value = anterior;
+  }
+}
+
+function atualizarCamposAgendamento() {
+  const tipo = document.getElementById("agenda-tipo").value;
+  const campos = {
+    intervalo: "campo-intervalo",
+    diario: "campo-hora",
+    cron: "campo-cron",
+  };
+  Object.entries(campos).forEach(([chave, campo]) => {
+    document.getElementById(campo).classList.toggle("oculto", chave !== tipo);
+  });
+  document.getElementById("campo-dias").classList.toggle("oculto", tipo !== "cron");
+  document.getElementById("agenda-intervalo").required = tipo === "intervalo";
+  document.getElementById("agenda-hora").required = tipo === "diario";
+  document.getElementById("agenda-cron").required = tipo === "cron";
+}
+
+function aplicarDiasAgenda() {
+  const selecionados = Array.from(document.querySelectorAll("#agenda-dias input:checked"))
+    .map((input) => Number(input.value))
+    .sort((a, b) => a - b);
+  let dia = "*";
+  if (selecionados.length === 7) {
+    dia = "*";
+  } else if (selecionados.length === 5 && selecionados.every((valor) => valor >= 1 && valor <= 5)) {
+    dia = "seg-sex";
+  } else if (selecionados.length) {
+    dia = selecionados.map((valor) => DIAS_SEMANA_AGENDA[valor]).join(",");
+  }
+  const campo = document.getElementById("agenda-cron");
+  const partes = campo.value.trim().split(/\s+/);
+  while (partes.length < 5) partes.push("*");
+  partes[4] = dia;
+  campo.value = partes.slice(0, 5).join(" ");
+}
+
+function expressaoAgendamento() {
+  const tipo = document.getElementById("agenda-tipo").value;
+  if (tipo === "intervalo") return `${Number(document.getElementById("agenda-intervalo").value) || 15}m`;
+  if (tipo === "diario") return document.getElementById("agenda-hora").value || "09:00";
+  return document.getElementById("agenda-cron").value.trim() || "0 9 * * *";
+}
+
+function novoAgendamento() {
+  const formulario = document.getElementById("form-agendamento");
+  formulario.reset();
+  document.getElementById("agenda-intervalo").value = "15";
+  document.getElementById("agenda-hora").value = "09:00";
+  document.getElementById("agenda-cron").value = "0 9 * * seg-sex";
+  document.getElementById("agenda-entrada").value = "{}";
+  document.getElementById("agenda-ativo").checked = true;
+  atualizarCamposAgendamento();
+  preencherWorkflowsAgendamento();
+  formulario.classList.remove("oculto");
+  document.getElementById("agenda-nome").focus();
+}
+
+function aplicarVisaoAgenda() {
+  const calendario = estado.visaoAgenda === "calendario";
+  document.getElementById("tabela-agendamentos").classList.toggle("oculto", calendario);
+  document.getElementById("calendario-agendamentos").classList.toggle("oculto", !calendario);
+  document.getElementById("btn-agenda-lista").classList.toggle("ativo", !calendario);
+  document.getElementById("btn-agenda-calendario").classList.toggle("ativo", calendario);
+  if (calendario) renderizarCalendarioAgendamentos();
+}
+
+function mudarVisaoAgenda(visao) {
+  estado.visaoAgenda = visao;
+  aplicarVisaoAgenda();
+}
+
+function mudarMesAgenda(deslocamento) {
+  const data = new Date(
+    estado.calendarioAgenda.ano,
+    estado.calendarioAgenda.mes - 1 + deslocamento,
+    1,
+  );
+  estado.calendarioAgenda = { ano: data.getFullYear(), mes: data.getMonth() + 1 };
+  renderizarCalendarioAgendamentos();
+}
+
+function irParaHojeAgenda() {
+  const hoje = new Date();
+  estado.calendarioAgenda = { ano: hoje.getFullYear(), mes: hoje.getMonth() + 1 };
+  renderizarCalendarioAgendamentos();
+}
+
+function chaveDiaAgenda(data) {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+}
+
+function renderizarCalendarioAgendamentos() {
+  const { ano, mes } = estado.calendarioAgenda;
+  const titulo = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date(ano, mes - 1, 1));
+  document.getElementById("cal-agenda-titulo").textContent = titulo.charAt(0).toUpperCase() + titulo.slice(1);
+  document.getElementById("cal-agenda-legenda").innerHTML = ["concluido", "erro", "executando"]
+    .map(
+      (status) =>
+        `<span><i style="--cor:${corStatusAgenda(status)}"></i>${escapar(status)}</span>`,
+    )
+    .join("");
+
+  const porDia = new Map();
+  estado.execucoesAgendadas.forEach((execucao) => {
+    const chave = String(execucao.inicio || execucao.criado_em || "").slice(0, 10);
+    if (!chave) return;
+    if (!porDia.has(chave)) porDia.set(chave, []);
+    porDia.get(chave).push(execucao);
+  });
+
+  const primeiro = new Date(ano, mes - 1, 1);
+  const inicio = new Date(primeiro);
+  inicio.setDate(1 - ((primeiro.getDay() + 6) % 7));
+  const hojeChave = chaveDiaAgenda(new Date());
+  let html = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+    .map((dia) => `<div class="cal-dia-semana">${dia}</div>`)
+    .join("");
+
+  for (let indice = 0; indice < 42; indice += 1) {
+    const data = new Date(inicio);
+    data.setDate(inicio.getDate() + indice);
+    const chave = chaveDiaAgenda(data);
+    const eventos = porDia.get(chave) || [];
+    const classes = ["cal-dia"];
+    if (data.getMonth() !== mes - 1) classes.push("fora");
+    if (chave === hojeChave) classes.push("hoje");
+    const botoes = eventos
+      .slice(0, 3)
+      .map((execucao) => {
+        const nome = escapar(execucao.workflow_nome || execucao.workflow_id || "Fluxo");
+        const status = execucao.status || "concluido";
+        const id = escapar(execucao.id);
+        return `<button type="button" class="cal-evento" style="--cor:${corStatusAgenda(status)}" data-execucao="${id}" title="#${id} · ${nome}">#${id.slice(0, 6)} ${nome}</button>`;
+      })
+      .join("");
+    const mais = eventos.length > 3 ? `<span class="cal-mais">+${eventos.length - 3}</span>` : "";
+    html += `<div class="${classes.join(" ")}"><span class="cal-numero">${data.getDate()}</span>${botoes}${mais}</div>`;
+  }
+  document.getElementById("cal-agenda-grade").innerHTML = html;
+}
+
+function renderizarTabelaAgendamentos() {
+  const corpo = document.getElementById("corpo-agendamentos");
+  if (!estado.agendamentos.length) {
+    corpo.innerHTML = '<tr><td colspan="7" class="vazio">Nenhum agendamento cadastrado.</td></tr>';
+    return;
+  }
+  corpo.innerHTML = estado.agendamentos
+    .map((agendamento) => {
+      const ativo = agendamento.ativo;
+      const id = escapar(agendamento.id);
+      const erro = agendamento.ultimo_erro
+        ? `<code class="erro">${escapar(agendamento.ultimo_erro)}</code>`
+        : "";
+      return `
+        <tr>
+          <td class="mono">#${id.slice(0, 6)}</td>
+          <td><strong>${escapar(agendamento.nome)}</strong><br><small>${escapar(agendamento.workflow_nome || agendamento.workflow_id)}</small></td>
+          <td><span class="tag">${escapar(agendamento.tipo)}</span><br><code class="mono">${escapar(agendamento.expressao)}</code></td>
+          <td class="mono">${formatarData(agendamento.proxima_execucao)}</td>
+          <td>${agendamento.execucoes} exec.<br><small class="mono">Última: ${formatarData(agendamento.ultima_execucao)}</small>${erro}</td>
+          <td><span class="tag ${ativo ? "ativo" : "pausado"}">${ativo ? "ativo" : "pausado"}</span></td>
+          <td class="acoes-tabela">
+            <button type="button" class="link" data-agenda-acao="rodar" data-id="${id}">Rodar</button>
+            <button type="button" class="link" data-agenda-acao="${ativo ? "pausar" : "ativar"}" data-id="${id}">${ativo ? "Pausar" : "Ativar"}</button>
+            <button type="button" class="link" data-agenda-acao="remover" data-id="${id}">Remover</button>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function renderizarAgendamentos() {
+  preencherWorkflowsAgendamento();
+  renderizarTabelaAgendamentos();
+  aplicarVisaoAgenda();
+}
+
+async function carregarAgendamentos() {
+  try {
+    const [agendamentos, execucoes] = await Promise.all([
+      api("/api/agendamentos"),
+      api("/api/execucoes?limite=200"),
+    ]);
+    estado.agendamentos = agendamentos || [];
+    estado.execucoesAgendadas = (execucoes || []).filter((item) => item.gatilho === "agendado");
+    renderizarAgendamentos();
+  } catch (erro) {
+    toast(erro.message, "erro");
+  }
+}
+
+async function salvarAgendamento(evento) {
+  evento.preventDefault();
+  const nome = document.getElementById("agenda-nome").value.trim();
+  const workflowId = document.getElementById("agenda-workflow").value;
+  if (!workflowId) {
+    toast("Crie um fluxo antes de agendar.", "erro");
+    return;
+  }
+  let entrada;
+  try {
+    entrada = JSON.parse(document.getElementById("agenda-entrada").value || "{}");
+  } catch {
+    toast("Os dados de entrada precisam ser um JSON válido.", "erro");
+    return;
+  }
+  if (!entrada || Array.isArray(entrada) || typeof entrada !== "object") {
+    toast("Os dados de entrada devem ser um objeto JSON.", "erro");
+    return;
+  }
+  try {
+    await api("/api/agendamentos", {
+      method: "POST",
+      body: JSON.stringify({
+        nome,
+        workflow_id: workflowId,
+        tipo: document.getElementById("agenda-tipo").value,
+        expressao: expressaoAgendamento(),
+        entrada,
+        ativo: document.getElementById("agenda-ativo").checked,
+      }),
+    });
+    document.getElementById("form-agendamento").classList.add("oculto");
+    await carregarAgendamentos();
+    toast("Agendamento salvo.");
+  } catch (erro) {
+    toast(erro.message, "erro");
+  }
+}
+
+async function acionarAgendamento(id, acao) {
+  const agendamento = estado.agendamentos.find((item) => item.id === id);
+  if (!agendamento) return;
+  if (acao === "remover" && !window.confirm(`Remover o agendamento "${agendamento.nome}"?`)) {
+    return;
+  }
+  try {
+    if (acao === "rodar") {
+      const execucao = await api(`/api/agendamentos/${id}/executar`, { method: "POST" });
+      toast(
+        execucao.status === "erro"
+          ? `Execução com erro: ${execucao.erro || "ver trace"}`
+          : "Agendamento executado agora.",
+        execucao.status === "erro" ? "erro" : "ok",
+      );
+    } else if (acao === "pausar" || acao === "ativar") {
+      await api(`/api/agendamentos/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ ativo: acao === "ativar" }),
+      });
+      toast(acao === "ativar" ? "Agendamento ativado." : "Agendamento pausado.");
+    } else if (acao === "remover") {
+      await api(`/api/agendamentos/${id}`, { method: "DELETE" });
+      toast("Agendamento removido.");
+    }
+    await carregarAgendamentos();
+  } catch (erro) {
+    toast(erro.message, "erro");
+  }
+}
+
+async function verificarAgendamentosAgora() {
+  try {
+    const resultado = await api("/api/agendamentos/verificar", { method: "POST" });
+    await carregarAgendamentos();
+    toast(
+      `${resultado.executados} executado(s), ${resultado.erros} erro(s) — ${resultado.verificados} verificado(s).`,
+    );
+  } catch (erro) {
+    toast(erro.message, "erro");
+  }
+}
+
 function configurarEventos() {
   document.getElementById("btn-hero-novo").addEventListener("click", novoWorkflow);
   document.getElementById("btn-hero-exemplo").addEventListener("click", async () => {
@@ -1036,6 +1342,22 @@ function configurarEventos() {
   document.getElementById("seletor-workflow").addEventListener("change", (evento) => carregarWorkflow(evento.target.value));
 
   document.getElementById("btn-atualizar-execucoes").addEventListener("click", carregarExecucoes);
+  document.getElementById("btn-atualizar-agendamentos").addEventListener("click", carregarAgendamentos);
+  document.getElementById("btn-verificar-agendamentos").addEventListener("click", verificarAgendamentosAgora);
+  document.getElementById("btn-novo-agendamento").addEventListener("click", novoAgendamento);
+  document.getElementById("agenda-cancelar").addEventListener("click", () => {
+    document.getElementById("form-agendamento").classList.add("oculto");
+  });
+  document.getElementById("btn-agenda-lista").addEventListener("click", () => mudarVisaoAgenda("lista"));
+  document.getElementById("btn-agenda-calendario").addEventListener("click", () => mudarVisaoAgenda("calendario"));
+  document.getElementById("cal-agenda-prev").addEventListener("click", () => mudarMesAgenda(-1));
+  document.getElementById("cal-agenda-next").addEventListener("click", () => mudarMesAgenda(1));
+  document.getElementById("cal-agenda-hoje").addEventListener("click", irParaHojeAgenda);
+  document.getElementById("form-agendamento").addEventListener("submit", salvarAgendamento);
+  document.getElementById("agenda-tipo").addEventListener("change", atualizarCamposAgendamento);
+  document.querySelectorAll("#agenda-dias input").forEach((input) => {
+    input.addEventListener("change", aplicarDiasAgenda);
+  });
   document.getElementById("btn-fechar-run").addEventListener("click", () => {
     document.getElementById("run-panel").classList.add("oculto");
   });
@@ -1100,6 +1422,8 @@ function configurarEventos() {
     if (execucao) abrirExecucao(execucao.dataset.execucao);
     const remover = evento.target.closest("[data-remover-cred]");
     if (remover) removerCredencial(remover.dataset.removerCred);
+    const agenda = evento.target.closest("[data-agenda-acao]");
+    if (agenda) acionarAgendamento(agenda.dataset.id, agenda.dataset.agendaAcao);
   });
 
   document.addEventListener("keydown", (evento) => {

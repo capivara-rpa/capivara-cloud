@@ -56,8 +56,9 @@ scripts\run.bat
 app/
   main.py        FastAPI, rotas e Swagger
   engine.py      motor de execução do grafo
+  agendador.py   execuções recorrentes (intervalo/diário/cron)
   connectors.py  catálogo + handlers dos conectores
-  db.py          SQLite (workflows, execuções, passos, credenciais)
+  db.py          SQLite (workflows, execuções, passos, credenciais, agendamentos)
   security.py    Fernet, máscara de segredos
   template.py    resolução de {{ variáveis }}, JSON e validação de URL
   exemplos.py    workflows de exemplo
@@ -82,6 +83,13 @@ tests/           pytest
 | DELETE | `/api/workflows/{id}` | Remove fluxo |
 | POST | `/api/workflows/{id}/executar` | Executa manualmente |
 | POST | `/api/webhooks/{id}` | Dispara por webhook |
+| GET | `/api/agendamentos` | Lista agendamentos |
+| POST | `/api/agendamentos` | Cria agendamento recorrente |
+| POST | `/api/agendamentos/verificar` | Verifica agendamentos vencidos agora |
+| GET | `/api/agendamentos/{id}` | Detalha agendamento |
+| PUT | `/api/agendamentos/{id}` | Atualiza, pausa ou ativa |
+| DELETE | `/api/agendamentos/{id}` | Remove agendamento |
+| POST | `/api/agendamentos/{id}/executar` | Executa agora |
 | GET | `/api/execucoes` | Histórico |
 | GET | `/api/execucoes/{id}` | Trace completo |
 | GET | `/api/credenciais` | Lista mascarada |
@@ -96,6 +104,16 @@ curl -X POST http://127.0.0.1:8787/api/webhooks/SEU_ID \
   -d '{"nome":"Arthur","email":"arthur@exemplo.com"}'
 ```
 
+## Agendamentos
+
+O menu **Agendamentos** cria execuções recorrentes sem dependência externa.
+São três tipos: `intervalo` (`15m`, `1h`, `30s`, `1d`), `diario`
+(`09:30`) e `cron` (5 campos, aceitando `*/15`, `9-18`, listas e
+`seg-sex`). Cada agendamento pode ser pausado, reativado, executado agora
+e mostra a próxima execução e o último erro. A verificação roda em uma
+thread do próprio servidor a cada `CAPIVARA_CLOUD_INTERVALO_AGENDADOR`
+segundos; o botão **Verificar agora** força uma checagem imediata.
+
 ## Variáveis de ambiente
 
 | Variável | Default | Para que serve |
@@ -107,6 +125,9 @@ curl -X POST http://127.0.0.1:8787/api/webhooks/SEU_ID \
 | `CAPIVARA_CLOUD_HOST` | `127.0.0.1` | Host do servidor |
 | `CAPIVARA_CLOUD_PORTA` | `8787` | Porta do servidor |
 | `CAPIVARA_CLOUD_PERMITIR_REDE_LOCAL` | `false` | Libera HTTP para localhost/rede privada |
+| `CAPIVARA_CLOUD_AGENDADOR` | `true` | Liga a thread de agendamentos |
+| `CAPIVARA_CLOUD_INTERVALO_AGENDADOR` | `60` | Intervalo mínimo de verificação (segundos) |
+| `CAPIVARA_CLOUD_FUSO` | `America/Sao_Paulo` | Fuso para `diario` e `cron` |
 
 ## Segurança
 

@@ -29,3 +29,11 @@ PORTA = int(os.getenv("CAPIVARA_CLOUD_PORTA", "8787"))
 PERMITIR_REDE_LOCAL = os.getenv(
     "CAPIVARA_CLOUD_PERMITIR_REDE_LOCAL", "false"
 ).strip().lower() in {"1", "true", "sim", "yes"}
+
+FUSO = os.getenv("CAPIVARA_CLOUD_FUSO", "America/Sao_Paulo")
+AGENDADOR_ATIVO = os.getenv(
+    "CAPIVARA_CLOUD_AGENDADOR", "true"
+).strip().lower() in {"1", "true", "sim", "yes"}
+INTERVALO_AGENDADOR = max(
+    30, int(os.getenv("CAPIVARA_CLOUD_INTERVALO_AGENDADOR", "60"))
+)

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 
@@ -57,8 +59,28 @@ CREATE TABLE IF NOT EXISTS credenciais (
     atualizado_em TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS agendamentos (
+    id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL,
+    workflow_id TEXT NOT NULL,
+    tipo TEXT NOT NULL,
+    expressao TEXT NOT NULL,
+    entrada TEXT NOT NULL DEFAULT '{}',
+    ativo INTEGER NOT NULL DEFAULT 1,
+    proxima_execucao TEXT NOT NULL,
+    ultima_execucao TEXT,
+    ultima_execucao_id TEXT,
+    ultimo_erro TEXT,
+    execucoes INTEGER NOT NULL DEFAULT 0,
+    erros INTEGER NOT NULL DEFAULT 0,
+    criado_em TEXT NOT NULL,
+    atualizado_em TEXT NOT NULL,
+    FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_execucoes_inicio ON execucoes(inicio DESC);
 CREATE INDEX IF NOT EXISTS idx_passos_execucao ON passos(execucao_id, id);
+CREATE INDEX IF NOT EXISTS idx_agendamentos_proxima ON agendamentos(ativo, proxima_execucao);
 """
 
 
@@ -70,15 +92,26 @@ def novo_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
-def conectar() -> sqlite3.Connection:
-    conn = sqlite3.connect(BANCO)
+@contextmanager
+def conectar() -> Iterator[sqlite3.Connection]:
+    conn = sqlite3.connect(BANCO, timeout=10.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    conn.execute("PRAGMA busy_timeout = 10000")
+    try:
+        yield conn
+    except BaseException:
+        conn.rollback()
+        raise
+    else:
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def iniciar_banco() -> None:
     with conectar() as conn:
+        conn.execute("PRAGMA journal_mode = WAL")
         conn.executescript(ESQUEMA)
     garantir_exemplos()
 
@@ -396,6 +429,183 @@ def apagar_credencial(id_credencial: str) -> bool:
     return cursor.rowcount > 0
 
 
+_AGENDAMENTO_SELECT = """
+SELECT a.*, COALESCE(w.nome, '') AS workflow_nome
+  FROM agendamentos a
+  LEFT JOIN workflows w ON w.id = a.workflow_id
+"""
+
+
+def _agendamento_da_linha(linha: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": linha["id"],
+        "nome": linha["nome"],
+        "workflow_id": linha["workflow_id"],
+        "workflow_nome": linha["workflow_nome"],
+        "tipo": linha["tipo"],
+        "expressao": linha["expressao"],
+        "entrada": _carregar_json(linha["entrada"], {}),
+        "ativo": bool(linha["ativo"]),
+        "proxima_execucao": linha["proxima_execucao"],
+        "ultima_execucao": linha["ultima_execucao"],
+        "ultima_execucao_id": linha["ultima_execucao_id"],
+        "ultimo_erro": linha["ultimo_erro"],
+        "execucoes": linha["execucoes"],
+        "erros": linha["erros"],
+        "criado_em": linha["criado_em"],
+        "atualizado_em": linha["atualizado_em"],
+    }
+
+
+def criar_agendamento(
+    nome: str,
+    workflow_id: str,
+    tipo: str,
+    expressao: str,
+    proxima_execucao: str,
+    entrada: dict[str, Any] | None = None,
+    ativo: bool = True,
+) -> dict[str, Any]:
+    id_agendamento = novo_id()
+    momento = agora()
+    with conectar() as conn:
+        conn.execute(
+            """
+            INSERT INTO agendamentos
+                (id, nome, workflow_id, tipo, expressao, entrada, ativo,
+                 proxima_execucao, criado_em, atualizado_em)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                id_agendamento,
+                nome,
+                workflow_id,
+                tipo,
+                expressao,
+                _json(entrada or {}),
+                int(ativo),
+                proxima_execucao,
+                momento,
+                momento,
+            ),
+        )
+    return obter_agendamento(id_agendamento)
+
+
+def listar_agendamentos() -> list[dict[str, Any]]:
+    with conectar() as conn:
+        linhas = conn.execute(
+            f"{_AGENDAMENTO_SELECT} ORDER BY a.proxima_execucao"
+        ).fetchall()
+    return [_agendamento_da_linha(linha) for linha in linhas]
+
+
+def obter_agendamento(id_agendamento: str) -> dict[str, Any] | None:
+    with conectar() as conn:
+        linha = conn.execute(
+            f"{_AGENDAMENTO_SELECT} WHERE a.id = ?", (id_agendamento,)
+        ).fetchone()
+    return _agendamento_da_linha(linha) if linha else None
+
+
+def atualizar_agendamento(
+    id_agendamento: str,
+    *,
+    nome: str | None = None,
+    tipo: str | None = None,
+    expressao: str | None = None,
+    entrada: dict[str, Any] | None = None,
+    ativo: bool | None = None,
+    proxima_execucao: str | None = None,
+) -> dict[str, Any] | None:
+    atual = obter_agendamento(id_agendamento)
+    if not atual:
+        return None
+    with conectar() as conn:
+        conn.execute(
+            """
+            UPDATE agendamentos
+               SET nome = ?, tipo = ?, expressao = ?, entrada = ?, ativo = ?,
+                   proxima_execucao = ?, atualizado_em = ?
+             WHERE id = ?
+            """,
+            (
+                nome if nome is not None else atual["nome"],
+                tipo if tipo is not None else atual["tipo"],
+                expressao if expressao is not None else atual["expressao"],
+                _json(entrada) if entrada is not None else _json(atual["entrada"]),
+                int(ativo if ativo is not None else atual["ativo"]),
+                proxima_execucao or atual["proxima_execucao"],
+                agora(),
+                id_agendamento,
+            ),
+        )
+    return obter_agendamento(id_agendamento)
+
+
+def apagar_agendamento(id_agendamento: str) -> bool:
+    with conectar() as conn:
+        cursor = conn.execute(
+            "DELETE FROM agendamentos WHERE id = ?", (id_agendamento,)
+        )
+    return cursor.rowcount > 0
+
+
+def listar_agendamentos_devidos(momento: str, limite: int = 50) -> list[dict[str, Any]]:
+    with conectar() as conn:
+        linhas = conn.execute(
+            f"{_AGENDAMENTO_SELECT} "
+            "WHERE a.ativo = 1 AND a.proxima_execucao <= ? "
+            "ORDER BY a.proxima_execucao LIMIT ?",
+            (momento, limite),
+        ).fetchall()
+    return [_agendamento_da_linha(linha) for linha in linhas]
+
+
+def reservar_agendamento(
+    id_agendamento: str,
+    proxima_anterior: str,
+    proxima_seguinte: str,
+    executado_em: str,
+) -> bool:
+    with conectar() as conn:
+        cursor = conn.execute(
+            """
+            UPDATE agendamentos
+               SET proxima_execucao = ?, ultima_execucao = ?, ultimo_erro = NULL
+             WHERE id = ? AND proxima_execucao = ? AND ativo = 1
+            """,
+            (proxima_seguinte, executado_em, id_agendamento, proxima_anterior),
+        )
+    return cursor.rowcount > 0
+
+
+def registrar_resultado_agendamento(
+    id_agendamento: str,
+    *,
+    sucesso: bool,
+    erro: str | None = None,
+    execucao_id: str | None = None,
+) -> None:
+    with conectar() as conn:
+        conn.execute(
+            """
+            UPDATE agendamentos
+               SET ultimo_erro = ?, execucoes = execucoes + 1,
+                   erros = erros + ?, ultima_execucao_id = COALESCE(?, ultima_execucao_id),
+                   atualizado_em = ?
+             WHERE id = ?
+            """,
+            (
+                None if sucesso else (erro or "Erro desconhecido."),
+                int(not sucesso),
+                execucao_id,
+                agora(),
+                id_agendamento,
+            ),
+        )
+
+
 def estatisticas() -> dict[str, Any]:
     with conectar() as conn:
         workflows = conn.execute("SELECT COUNT(*) FROM workflows").fetchone()[0]
@@ -407,6 +617,10 @@ def estatisticas() -> dict[str, Any]:
             "SELECT COUNT(*) FROM execucoes WHERE status = 'erro'"
         ).fetchone()[0]
         credenciais = conn.execute("SELECT COUNT(*) FROM credenciais").fetchone()[0]
+        agendamentos = conn.execute("SELECT COUNT(*) FROM agendamentos").fetchone()[0]
+        agendamentos_ativos = conn.execute(
+            "SELECT COUNT(*) FROM agendamentos WHERE ativo = 1"
+        ).fetchone()[0]
         ultimas = conn.execute(
             "SELECT * FROM execucoes ORDER BY inicio DESC LIMIT 6"
         ).fetchall()
@@ -416,6 +630,8 @@ def estatisticas() -> dict[str, Any]:
         "concluidas": concluidas,
         "erros": erros,
         "credenciais": credenciais,
+        "agendamentos": agendamentos,
+        "agendamentos_ativos": agendamentos_ativos,
         "taxa_sucesso": round((concluidas / execucoes) * 100, 1) if execucoes else 0.0,
         "ultimas": [_execucao_da_linha(linha) for linha in ultimas],
     }

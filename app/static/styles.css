@@ -828,7 +828,10 @@ a:hover {
 .inspetor textarea,
 .formulario input,
 .formulario select,
-.formulario textarea {
+.formulario textarea,
+.form-agendamento input,
+.form-agendamento select,
+.form-agendamento textarea {
   background: var(--bg);
   border: 1px solid var(--card-borda);
   border-radius: 9px;
@@ -846,7 +849,10 @@ a:hover {
 .inspetor textarea:focus,
 .formulario input:focus,
 .formulario select:focus,
-.formulario textarea:focus {
+.formulario textarea:focus,
+.form-agendamento input:focus,
+.form-agendamento select:focus,
+.form-agendamento textarea:focus {
   border-color: var(--primaria);
   box-shadow: 0 0 0 3px rgba(31, 164, 99, 0.12);
 }
@@ -1676,6 +1682,248 @@ a:hover {
   color: var(--perigo);
 }
 
+#view-agendamentos > .barra-acoes {
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+#view-agendamentos .dica {
+  color: var(--texto-3);
+  font-size: 11px;
+  margin-left: auto;
+}
+
+.segmentado {
+  border: 1px solid var(--borda);
+  border-radius: 9px;
+  display: inline-flex;
+  overflow: hidden;
+}
+
+.segmentado .botao-secundario {
+  border: 0;
+  border-radius: 0;
+}
+
+.segmentado .botao-secundario.ativo {
+  background: var(--primaria);
+  color: #FFFFFF;
+}
+
+.form-agendamento {
+  background: var(--card);
+  border: 1px solid var(--card-borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-suave);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 16px;
+  padding: 16px;
+}
+
+.form-agendamento .campo {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.form-agendamento .campo-largo {
+  grid-column: span 2;
+}
+
+.form-agendamento .campo-botao {
+  align-items: flex-end;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.form-agendamento .campo-botao button {
+  width: auto;
+}
+
+.form-agendamento summary {
+  color: var(--texto-2);
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.dias-semana {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dia {
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--borda);
+  border-radius: 7px;
+  color: var(--texto-2);
+  display: inline-flex;
+  font-size: 10px;
+  gap: 5px;
+  padding: 5px 7px;
+}
+
+.dia input {
+  height: 13px !important;
+  width: 13px !important;
+}
+
+.acoes-tabela {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.acoes-tabela button.link {
+  background: none;
+  border: 0;
+  color: var(--primaria);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+}
+
+.acoes-tabela button.link:hover {
+  text-decoration: underline;
+}
+
+.calendario {
+  background: var(--card);
+  border: 1px solid var(--card-borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-suave);
+  margin-top: 12px;
+  padding: 16px;
+}
+
+.calendario-topo {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.calendario-topo h3 {
+  flex: 0 1 220px;
+  font-family: var(--fonte-titulo);
+  font-size: 14px;
+  text-align: center;
+}
+
+.calendario-legenda {
+  color: var(--texto-3);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 10px;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.calendario-legenda span {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+}
+
+.calendario-legenda i {
+  background: var(--cor);
+  border-radius: 50%;
+  display: inline-block;
+  height: 7px;
+  width: 7px;
+}
+
+.calendario-grade {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.cal-dia-semana {
+  color: var(--texto-3);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding-bottom: 4px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.cal-dia {
+  background: var(--bg);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 92px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 6px;
+}
+
+.cal-dia.fora {
+  opacity: 0.35;
+}
+
+.cal-dia.hoje {
+  border-color: var(--primaria);
+  box-shadow: inset 0 0 0 1px var(--primaria);
+}
+
+.cal-numero {
+  color: var(--texto-2);
+  font-family: var(--fonte-mono);
+  font-size: 10px;
+}
+
+.cal-evento {
+  background: color-mix(in srgb, var(--cor) 15%, transparent);
+  border: 0;
+  border-left: 3px solid var(--cor);
+  border-radius: 4px;
+  color: var(--texto);
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1.3;
+  overflow: hidden;
+  padding: 4px 5px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-evento:hover {
+  filter: brightness(0.94);
+}
+
+.cal-mais {
+  color: var(--texto-3);
+  font-size: 9px;
+  padding-left: 3px;
+}
+
+.tag.ativo {
+  background: rgba(31, 164, 99, 0.13);
+  border-color: rgba(31, 164, 99, 0.3);
+  color: var(--sucesso);
+}
+
+.tag.pausado {
+  background: rgba(183, 121, 31, 0.13);
+  border-color: rgba(183, 121, 31, 0.3);
+  color: var(--aviso);
+}
+
 .api-hero {
   background:
     radial-gradient(circle at 90% 10%, rgba(255, 216, 77, 0.16), transparent 28%),
@@ -1869,8 +2117,13 @@ a:hover {
   }
 
   .grid-duas,
-  .grid-credenciais {
+  .grid-credenciais,
+  .form-agendamento {
     grid-template-columns: 1fr;
+  }
+
+  .form-agendamento .campo-largo {
+    grid-column: span 1;
   }
 }
 

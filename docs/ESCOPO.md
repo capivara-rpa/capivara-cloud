@@ -27,14 +27,16 @@ em máquinas; o Cloud orquestra chamadas de API, dados e notificações.
 5. Credenciais cifradas com Fernet e mascaradas na API.
 6. Histórico de execuções com trace por passo.
 7. Swagger/OpenAPI público.
-8. UI local com tema claro/escuro e identidade Capivara.
+ 8. UI local com tema claro/escuro e identidade Capivara.
+ 9. Agendamentos recorrentes (intervalo, horário diário e cron) com pausa e
+    execução imediata.
+
 
 ## Fora do MVP
 
 - Autenticação de usuários e multiusuário.
 - Times, organizações e RBAC.
 - Execução distribuída e filas.
-- Agendamento cron (a Lagoa já cobre isso no outro produto).
 - Marketplace de conectores.
 - Cobrança.
 - Editor de código dentro do navegador.
@@ -61,7 +63,7 @@ em máquinas; o Cloud orquestra chamadas de API, dados e notificações.
 
 1. Login local e sessão.
 2. Execução assíncrona e fila.
-3. Agendamento e retentativas.
+3. Retentativas e relatório de erros dos agendamentos.
 4. Mais conectores (Google Drive, Gmail, Postgres, S3, CRM).
 5. Versionamento de workflow.
 6. Importar/exportar JSON.
