@@ -37,9 +37,3 @@ AGENDADOR_ATIVO = os.getenv(
 INTERVALO_AGENDADOR = max(
     30, int(os.getenv("CAPIVARA_CLOUD_INTERVALO_AGENDADOR", "60"))
 )
-
-IA_PROVIDER = os.getenv("CAPIVARA_IA_PROVIDER", "openai")
-IA_BASE_URL = os.getenv("CAPIVARA_IA_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-IA_MODELO = os.getenv("CAPIVARA_IA_MODELO", "gpt-4o-mini")
-IA_CHAVE_SERVIDOR = os.getenv("CAPIVARA_AI_KEY", "")
-IA_TEMPO = max(5, int(os.getenv("CAPIVARA_IA_TIMEOUT", "60")))

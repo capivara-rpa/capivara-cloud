@@ -44,10 +44,3 @@ class AgendamentoAtualizacao(BaseModel):
     expressao: str | None = Field(default=None, min_length=1, max_length=120)
     entrada: dict[str, Any] | None = None
     ativo: bool | None = None
-
-
-class CopilotEntrada(BaseModel):
-    descricao: str = Field(min_length=5, max_length=4000)
-    nome: str | None = Field(default=None, max_length=120)
-    modelo: str | None = Field(default=None, max_length=100)
-    base_url: str | None = Field(default=None, max_length=200)

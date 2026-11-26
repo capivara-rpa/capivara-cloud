@@ -17,7 +17,6 @@ const estado = {
   editor: null,
   alterado: false,
   carregando: false,
-  copilot: null,
   tema: localStorage.getItem("capivara-cloud-tema") || "claro",
 };
 
@@ -32,12 +31,7 @@ const TITULOS = {
   conexoes: ["Conexões", "Conectores prontos e documentação pública."],
   credenciais: ["Credenciais", "Segredos cifrados em repouso com Fernet."],
   api: ["API / Swagger", "Integre por HTTP, webhook ou OpenAPI."],
-  configuracoes: ["Configurações", "Preferências locais e chave de IA."],
 };
-
-const CHAVE_IA_LOCAL = "capivara-cloud-ia-key";
-const MODELO_IA_LOCAL = "capivara-cloud-ia-modelo";
-const BASE_IA_LOCAL = "capivara-cloud-ia-base-url";
 
 document.addEventListener("DOMContentLoaded", iniciar);
 
@@ -116,12 +110,11 @@ function trocarView(view, atualizarHash = true) {
   if (view === "conexoes") renderizarConectores();
   if (view === "credenciais") renderizarCredenciais();
   if (view === "api") renderizarEndpoints();
-  if (view === "configuracoes") atualizarConfigCopilot();
 }
 
 async function carregarTudo() {
   try {
-    const [config, conectores, workflows, estatisticas, credenciais, modelos, agendamentos, statusCopilot] =
+    const [config, conectores, workflows, estatisticas, credenciais, modelos, agendamentos] =
       await Promise.all([
         api("/api/config"),
         api("/api/conectores"),
@@ -130,7 +123,6 @@ async function carregarTudo() {
         api("/api/credenciais"),
         api("/api/credenciais/modelos"),
         api("/api/agendamentos"),
-        api("/api/copilot/status"),
       ]);
 
     estado.conectores = conectores.conectores || [];
@@ -140,7 +132,6 @@ async function carregarTudo() {
     estado.credenciais = credenciais || [];
     estado.modelos = modelos || [];
     estado.agendamentos = agendamentos || [];
-    estado.copilot = statusCopilot || null;
 
     document.getElementById("versao-app").textContent = `v${config.versao}`;
     document.getElementById("rodape-versao").textContent = `v${config.versao}`;
@@ -154,7 +145,6 @@ async function carregarTudo() {
     renderizarAgendamentos();
     renderizarEndpoints();
     atualizarStatusWorkflow();
-    atualizarConfigCopilot();
   } catch (erro) {
     console.error(erro);
     toast(`Não foi possível carregar a API: ${erro.message}`, "erro");
@@ -205,120 +195,6 @@ async function verificarConexao() {
     caixa.classList.add("offline");
     caixa.classList.remove("online");
     texto.textContent = "API offline";
-  }
-}
-
-function chaveIaLocal() {
-  return localStorage.getItem(CHAVE_IA_LOCAL) || "";
-}
-
-function modeloIaLocal() {
-  return localStorage.getItem(MODELO_IA_LOCAL) || "";
-}
-
-function baseIaLocal() {
-  return localStorage.getItem(BASE_IA_LOCAL) || "";
-}
-
-function atualizarConfigCopilot() {
-  const campoChave = document.getElementById("config-ia-chave");
-  if (!campoChave) return;
-  campoChave.value = chaveIaLocal();
-  document.getElementById("config-ia-modelo").value = modeloIaLocal();
-  document.getElementById("config-ia-base").value = baseIaLocal();
-
-  const status = document.getElementById("config-ia-status");
-  const servidor = Boolean(estado.copilot?.servidor_configurado);
-  const salva = Boolean(chaveIaLocal());
-  status.textContent = salva
-    ? "Chave salva neste navegador. Ela não é gravada no banco nem aparece nos logs."
-    : servidor
-      ? "O servidor já tem uma chave; você também pode salvar a sua aqui."
-      : "Nenhuma chave salva. Gere uma no provedor e cole acima.";
-  status.classList.toggle("erro", !salva && !servidor);
-
-  const statusInicial = document.getElementById("copilot-status");
-  if (statusInicial && !statusInicial.textContent) {
-    statusInicial.textContent = salva || servidor
-      ? "Pronto para gerar com IA."
-      : "Salve sua chave em Configurações para gerar.";
-    statusInicial.classList.toggle("erro", !salva && !servidor);
-  }
-}
-
-function salvarConfigCopilot(evento) {
-  evento.preventDefault();
-  const chave = document.getElementById("config-ia-chave").value.trim();
-  const modelo = document.getElementById("config-ia-modelo").value.trim();
-  const base = document.getElementById("config-ia-base").value.trim();
-  if (base && !/^https?:\/\//i.test(base)) {
-    const status = document.getElementById("config-ia-status");
-    status.textContent = "A Base URL precisa começar com http:// ou https://.";
-    status.classList.add("erro");
-    return;
-  }
-  if (chave) localStorage.setItem(CHAVE_IA_LOCAL, chave);
-  else localStorage.removeItem(CHAVE_IA_LOCAL);
-  if (modelo) localStorage.setItem(MODELO_IA_LOCAL, modelo);
-  else localStorage.removeItem(MODELO_IA_LOCAL);
-  if (base) localStorage.setItem(BASE_IA_LOCAL, base);
-  else localStorage.removeItem(BASE_IA_LOCAL);
-  atualizarConfigCopilot();
-  toast("Configurações de IA salvas neste navegador.");
-}
-
-function limparChaveIa() {
-  localStorage.removeItem(CHAVE_IA_LOCAL);
-  atualizarConfigCopilot();
-  toast("Chave removida deste navegador.");
-}
-
-async function gerarComIA(evento) {
-  evento.preventDefault();
-  const botao = evento.submitter;
-  const campoDescricao = document.getElementById("copilot-descricao");
-  const descricao = campoDescricao.value.trim();
-  const chave = chaveIaLocal();
-  const status = document.getElementById("copilot-status");
-  if (!chave && !estado.copilot?.servidor_configurado) {
-    status.textContent = "Salve sua chave em Configurações para gerar.";
-    status.classList.add("erro");
-    toast("Salve sua chave em Configurações primeiro.", "erro");
-    return;
-  }
-  status.classList.remove("erro");
-  status.textContent = "Gerando rascunho…";
-  if (botao) botao.disabled = true;
-  try {
-    const gerado = await api("/api/copilot/gerar", {
-      method: "POST",
-      headers: chave ? { "X-IA-Key": chave } : {},
-      body: JSON.stringify({
-        descricao,
-        modelo: modeloIaLocal() || undefined,
-        base_url: baseIaLocal() || undefined,
-      }),
-    });
-    const workflow = await api("/api/workflows", {
-      method: "POST",
-      body: JSON.stringify({
-        nome: gerado.nome,
-        descricao: gerado.descricao,
-        grafo: gerado.grafo,
-      }),
-    });
-    estado.workflows.unshift(workflow);
-    campoDescricao.value = "";
-    status.textContent = "Rascunho criado. Revise antes de salvar ou rodar.";
-    await carregarWorkflow(workflow.id);
-    trocarView("fluxos");
-    toast("Rascunho gerado. Revise antes de salvar ou rodar.");
-  } catch (erro) {
-    status.textContent = erro.message;
-    status.classList.add("erro");
-    toast(erro.message, "erro");
-  } finally {
-    if (botao) botao.disabled = false;
   }
 }
 
@@ -1460,9 +1336,6 @@ function configurarEventos() {
   });
 
   document.getElementById("btn-novo-fluxo").addEventListener("click", novoWorkflow);
-  document.getElementById("form-copilot-home").addEventListener("submit", gerarComIA);
-  document.getElementById("form-config-ia").addEventListener("submit", salvarConfigCopilot);
-  document.getElementById("btn-config-ia-limpar").addEventListener("click", limparChaveIa);
   document.getElementById("btn-salvar").addEventListener("click", () => salvarWorkflow());
   document.getElementById("btn-executar").addEventListener("click", executarWorkflow);
   document.getElementById("btn-excluir").addEventListener("click", excluirWorkflow);

@@ -14,10 +14,6 @@ os.environ["CAPIVARA_CLOUD_CHAVE"] = str(PASTA_TESTE / "cloud.key")
 os.environ["CAPIVARA_CLOUD_KEY"] = base64.urlsafe_b64encode(os.urandom(32)).decode()
 os.environ["CAPIVARA_CLOUD_PERMITIR_REDE_LOCAL"] = "false"
 os.environ["CAPIVARA_CLOUD_AGENDADOR"] = "false"
-os.environ["CAPIVARA_IA_PROVIDER"] = "openai"
-os.environ["CAPIVARA_IA_BASE_URL"] = "https://api.openai.com/v1"
-os.environ["CAPIVARA_IA_MODELO"] = "gpt-4o-mini"
-os.environ["CAPIVARA_AI_KEY"] = ""
 
 
 @pytest.fixture(autouse=True)

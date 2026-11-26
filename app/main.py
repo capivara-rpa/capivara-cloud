@@ -4,12 +4,12 @@ import sqlite3
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
-from fastapi import Body, FastAPI, Header, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import agendador, config, copilot, db
+from . import agendador, db
 from .config import DESCRICAO, HOST, NOME, PASTA_ESTATICOS, PORTA, VERSAO
 from .connectors import CATALOGO, CONJUNTOS_ORDEM
 from .engine import ErroWorkflow, executar_workflow
@@ -17,7 +17,6 @@ from .exemplos import grafo_novo
 from .schemas import (
     AgendamentoAtualizacao,
     AgendamentoEntrada,
-    CopilotEntrada,
     CredencialEntrada,
     ExecucaoEntrada,
     WorkflowAtualizacao,
@@ -50,7 +49,6 @@ app = FastAPI(
         {"name": "Execuções", "description": "Histórico e trace por passo."},
         {"name": "Credenciais", "description": "Segredos cifrados em repouso."},
         {"name": "Agendamentos", "description": "Execuções recorrentes de fluxos."},
-        {"name": "Copilot", "description": "Geração de rascunhos de fluxo com IA (BYOK)."},
     ],
 )
 
@@ -368,51 +366,6 @@ def executar_agendamento(id_agendamento: str) -> dict[str, Any]:
     try:
         return agendador.executar_agendamento(agendamento)
     except (ValueError, ErroWorkflow) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@app.get(
-    "/api/copilot/status",
-    tags=["Copilot"],
-    summary="Mostra como a geração com IA está configurada",
-)
-def status_copilot() -> dict[str, Any]:
-    return {
-        "disponivel": True,
-        "servidor_configurado": bool(config.IA_CHAVE_SERVIDOR),
-        "provider": config.IA_PROVIDER,
-        "modelo": config.IA_MODELO,
-        "base_url": config.IA_BASE_URL,
-    }
-
-
-@app.post(
-    "/api/copilot/gerar",
-    tags=["Copilot"],
-    summary="Gera um rascunho de fluxo a partir de uma descrição",
-)
-def gerar_copilot(
-    entrada: CopilotEntrada,
-    x_ia_key: Annotated[str | None, Header()] = None,
-) -> dict[str, Any]:
-    chave = (x_ia_key or "").strip() or config.IA_CHAVE_SERVIDOR
-    if not chave:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Informe sua chave de IA na tela ou configure CAPIVARA_AI_KEY "
-                "no servidor."
-            ),
-        )
-    try:
-        return copilot.gerar(
-            entrada.descricao,
-            chave=chave,
-            modelo=entrada.modelo,
-            base_url=entrada.base_url,
-            nome=entrada.nome,
-        )
-    except copilot.ErroCopilot as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
