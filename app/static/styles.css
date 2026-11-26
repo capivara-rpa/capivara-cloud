@@ -2087,31 +2087,66 @@ a:hover {
   border-color: rgba(200, 16, 46, 0.4);
 }
 
-.ia-origem {
-  background: rgba(31, 164, 99, 0.12);
-  color: var(--primaria);
-  font-size: 10.5px;
-  white-space: nowrap;
+.copilot-prompt {
+  background: linear-gradient(135deg, rgba(31, 164, 99, 0.08), rgba(255, 216, 77, 0.08));
+  border: 1px solid rgba(31, 164, 99, 0.28);
+  border-radius: 18px;
+  box-shadow: 0 14px 40px rgba(14, 20, 17, 0.08);
+  margin-bottom: 18px;
+  padding: 20px 22px 18px;
 }
 
-.modal-estreito {
-  max-width: 560px;
+.copilot-selo {
+  background: var(--amarelo);
+  border-radius: 999px;
+  color: #3B2A00;
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 4px 9px;
 }
 
-.formulario-copilot {
-  padding: 18px 20px 22px;
+.copilot-prompt-topo h3 {
+  font-size: 20px;
+  margin-top: 10px;
 }
 
-.formulario-copilot .campo-check {
-  align-items: center;
+.copilot-prompt-topo p {
   color: var(--texto-2);
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: 12.5px;
+  margin-top: 5px;
 }
 
-.formulario-copilot .campo-check input {
-  height: auto;
-  width: auto;
+.copilot-prompt-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.copilot-prompt-form textarea {
+  font-family: var(--fonte-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  min-height: 84px;
+  resize: vertical;
+  width: 100%;
+}
+
+.copilot-prompt-acoes {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.config-ia-card {
+  max-width: 760px;
+}
+
+.config-ia {
+  padding: 20px 22px 24px;
 }
 
 .form-acoes {

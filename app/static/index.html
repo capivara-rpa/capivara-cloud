@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/vendor/drawflow.min.css">
-  <link rel="stylesheet" href="/static/styles.css?v=5">
+  <link rel="stylesheet" href="/static/styles.css?v=6">
 </head>
 <body>
   <div class="app">
@@ -37,6 +37,7 @@
         <p class="nav-titulo">Sistema</p>
         <ul>
           <li><button class="nav-link" data-view="api"><span class="nav-icone">{ }</span> API / Swagger</button></li>
+          <li><button class="nav-link" data-view="configuracoes"><span class="nav-icone">⚙</span> Configurações</button></li>
         </ul>
       </nav>
 
@@ -83,6 +84,23 @@
           </div>
         </div>
 
+        <div class="copilot-prompt">
+          <div class="copilot-prompt-topo">
+            <span class="copilot-selo">✨ NOVO</span>
+            <h3>Descreva o que quer automatizar</h3>
+            <p>Em português mesmo. A Capivara monta um rascunho, você revisa e salva.</p>
+          </div>
+          <form id="form-copilot-home" class="copilot-prompt-form">
+            <textarea id="copilot-descricao" rows="3" required spellcheck="false"
+              placeholder="Ex.: receber um webhook, consultar uma API e enviar o resultado no Slack"></textarea>
+            <div class="copilot-prompt-acoes">
+              <button id="btn-copilot-gerar" class="botao-primario" type="submit">Gerar com IA</button>
+              <button type="button" class="link" data-ir="configuracoes">Configurar chave</button>
+            </div>
+            <p id="copilot-status" class="copilot-status"></p>
+          </form>
+        </div>
+
         <div class="resumo" id="resumo"></div>
 
         <div class="grid-duas">
@@ -110,8 +128,6 @@
             <select id="seletor-workflow"></select>
           </div>
           <div class="barra-acoes">
-            <span id="ia-origem" class="chip ia-origem">IA: verificando…</span>
-            <button id="btn-copilot" class="botao-secundario" type="button">Gerar com IA</button>
             <button id="btn-novo-fluxo" class="botao-secundario" type="button">+ Novo</button>
             <button id="btn-salvar" class="botao-secundario" type="button">Salvar</button>
             <button id="btn-executar" class="botao-primario" type="button">▶ Rodar</button>
@@ -348,6 +364,35 @@
         </div>
       </section>
 
+      <section id="view-configuracoes" class="view oculto">
+        <div class="card config-ia-card">
+          <div class="card-cabecalho">
+            <div>
+              <h3>Configurações de IA</h3>
+              <p class="subtitulo">A chave fica salva apenas neste navegador.</p>
+            </div>
+            <span class="chip">BYOK</span>
+          </div>
+          <form id="form-config-ia" class="formulario config-ia">
+            <label>Chave da API
+              <input id="config-ia-chave" type="password" placeholder="sk-..." autocomplete="off">
+            </label>
+            <label>Modelo (opcional)
+              <input id="config-ia-modelo" placeholder="gpt-4o-mini" autocomplete="off">
+            </label>
+            <label>Base URL (opcional)
+              <input id="config-ia-base" placeholder="https://api.openai.com/v1" autocomplete="off">
+            </label>
+            <p id="config-ia-status" class="copilot-status"></p>
+            <div class="form-acoes">
+              <button class="botao-primario" type="submit">Salvar configuração</button>
+              <button id="btn-config-ia-limpar" class="botao-secundario" type="button">Limpar chave salva</button>
+            </div>
+            <p class="ajuda">A chave é enviada só como cabeçalho na geração do fluxo. Nunca vai para o banco, para o trace ou para os logs.</p>
+          </form>
+        </div>
+      </section>
+
       <footer class="rodape">
         Capivara Cloud · MVP local · <span id="rodape-versao">v0.1.0</span> · feito para a comunidade brasileira
       </footer>
@@ -365,41 +410,9 @@
     <div id="dialog-execucao-corpo"></div>
   </dialog>
 
-  <dialog id="dialog-copilot" class="modal modal-estreito">
-    <div class="modal-topo">
-      <div>
-        <h2>Gerar fluxo com IA</h2>
-        <p>Você descreve, a Capivara monta um rascunho para revisar.</p>
-      </div>
-      <button id="btn-fechar-copilot" type="button" aria-label="Fechar">×</button>
-    </div>
-    <form id="form-copilot" class="formulario formulario-copilot">
-      <label>O que você quer automatizar?
-        <textarea id="copilot-descricao" rows="6" required spellcheck="false"
-          placeholder="Ex.: receber um webhook, consultar uma API e enviar o resultado no Slack"></textarea>
-      </label>
-      <label>Chave de IA (BYOK)
-        <input id="copilot-chave" type="password" placeholder="sk-..." autocomplete="off">
-      </label>
-      <label>Modelo (opcional)
-        <input id="copilot-modelo" placeholder="gpt-4o-mini" autocomplete="off">
-      </label>
-      <label class="campo-check">
-        <input type="checkbox" id="copilot-lembrar" checked>
-        Guardar a chave apenas nesta sessão do navegador
-      </label>
-      <p class="ajuda" id="copilot-ajuda">A chave vai no cabeçalho da requisição e nunca é gravada no banco.</p>
-      <p id="copilot-status" class="copilot-status"></p>
-      <div class="form-acoes">
-        <button type="submit" class="botao-primario">Gerar rascunho</button>
-        <button type="button" id="copilot-cancelar" class="botao-secundario">Cancelar</button>
-      </div>
-    </form>
-  </dialog>
-
   <div id="toast" class="toast oculto" role="status"></div>
 
   <script src="/static/vendor/drawflow.min.js"></script>
-  <script src="/static/app.js?v=5"></script>
+  <script src="/static/app.js?v=6"></script>
 </body>
 </html>

@@ -11,37 +11,39 @@ novo workflow para você revisar antes de salvar ou rodar.
 2. Entre na sua conta e clique em **Create new secret key**.
 3. Dê um nome curto (ex.: `capivara-cloud-local`), copie o valor `sk-...` e
    guarde em um cofre. A chave aparece uma única vez no provedor.
-4. No Capivara Cloud, abra **Fluxos → Gerar com IA** e cole a chave no campo
-   **Chave de IA (BYOK)**.
+4. No Capivara Cloud, abra **Configurações → Configurações de IA** e cole a
+   chave no campo **Chave da API**.
 
 Não coloque a chave no código, no `.env` versionado, em prints ou no chat. Se
 ela vazar, revogue imediatamente no provedor e gere outra.
 
 ## Usar na interface
 
-1. Abra `http://127.0.0.1:8787/#fluxos`.
-2. Clique em **Gerar com IA**.
-3. Descreva o processo, por exemplo:
+1. Abra `http://127.0.0.1:8787/` — a caixa **Descreva o que quer automatizar**
+   fica na tela inicial, logo abaixo do banner.
+2. Configure a chave em **Configurações → Configurações de IA** e clique em
+   **Salvar configuração**.
+3. Descreva o processo na caixa, por exemplo:
 
    > Receber um webhook com `prioridade`, consultar uma API e enviar o resultado
    > para um canal do Slack.
 
-4. Informe a chave e, se quiser, um modelo diferente do padrão.
-5. Clique em **Gerar rascunho**.
-6. O Cloud cria um novo fluxo, abre o canvas e marca o status como
+4. Clique em **Gerar com IA**.
+5. O Cloud cria um novo fluxo, abre o canvas e marca o status como
    **alterações não salvas**. Revise os nós e clique em **Salvar** quando
    aprovar.
 
-A chave marcada como **Guardar nesta sessão** fica apenas no
-`sessionStorage` do navegador e é removida ao fechar a janela. Sem essa opção,
-o campo é limpo ao fechar o diálogo.
+A chave, o modelo e a Base URL ficam no `localStorage` deste navegador e podem
+ser alterados ou limpos em **Configurações**. A geração usa a chave salva; se o
+servidor tiver `CAPIVARA_AI_KEY`, ela também pode ser usada sem salvar nada no
+navegador.
 
 ## Segurança e privacidade
 
 - A chave vai no cabeçalho `X-IA-Key` da chamada `POST /api/copilot/gerar`.
   Ela não entra no corpo da requisição, não é gravada no SQLite e não aparece
   no trace.
-- O selo no topo do editor mostra a origem: **IA: sua chave** ou **IA: servidor**.
+- A tela de Configurações mostra se há chave salva no navegador ou no servidor.
 - O prompt inclui o catálogo de conectores e a sua descrição. Não inclui
   credenciais cifradas nem valores do banco.
 - O modelo é obrigado a devolver JSON com `nome`, `descricao` e `passos`.

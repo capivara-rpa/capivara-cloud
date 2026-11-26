@@ -111,11 +111,11 @@ curl -X POST http://127.0.0.1:8787/api/webhooks/SEU_ID \
 
 ## Copilot de fluxos
 
-No menu **Fluxos**, o botão **Gerar com IA** transforma uma descrição em um
-novo workflow Drawflow. O modelo recebe o catálogo de conectores, devolve JSON e
-o Cloud valida todos os nós, parâmetros e ligações antes de criar o rascunho.
-A chave é BYOK (vai no header `X-IA-Key` e não é gravada); opcionalmente o
-administrador pode configurar `CAPIVARA_AI_KEY` no servidor. O fluxo gerado **não**
+Na tela inicial, a caixa **Descreva o que quer automatizar** transforma uma
+descrição em um novo workflow Drawflow. O modelo recebe o catálogo de conectores,
+devolve JSON e o Cloud valida todos os nós, parâmetros e ligações antes de criar
+o rascunho. A chave é BYOK: salve em **Configurações → Configurações de IA** (fica
+no navegador) ou configure `CAPIVARA_AI_KEY` no servidor. O fluxo gerado **não**
 é executado automaticamente — revise e salve antes de rodar. Passo a passo,
 provedores compatíveis e solução de problemas em `docs/COPILOT.md`.
 
