@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/vendor/drawflow.min.css">
-  <link rel="stylesheet" href="/static/styles.css?v=4">
+  <link rel="stylesheet" href="/static/styles.css?v=5">
 </head>
 <body>
   <div class="app">
@@ -110,6 +110,8 @@
             <select id="seletor-workflow"></select>
           </div>
           <div class="barra-acoes">
+            <span id="ia-origem" class="chip ia-origem">IA: verificando…</span>
+            <button id="btn-copilot" class="botao-secundario" type="button">Gerar com IA</button>
             <button id="btn-novo-fluxo" class="botao-secundario" type="button">+ Novo</button>
             <button id="btn-salvar" class="botao-secundario" type="button">Salvar</button>
             <button id="btn-executar" class="botao-primario" type="button">▶ Rodar</button>
@@ -363,9 +365,41 @@
     <div id="dialog-execucao-corpo"></div>
   </dialog>
 
+  <dialog id="dialog-copilot" class="modal modal-estreito">
+    <div class="modal-topo">
+      <div>
+        <h2>Gerar fluxo com IA</h2>
+        <p>Você descreve, a Capivara monta um rascunho para revisar.</p>
+      </div>
+      <button id="btn-fechar-copilot" type="button" aria-label="Fechar">×</button>
+    </div>
+    <form id="form-copilot" class="formulario formulario-copilot">
+      <label>O que você quer automatizar?
+        <textarea id="copilot-descricao" rows="6" required spellcheck="false"
+          placeholder="Ex.: receber um webhook, consultar uma API e enviar o resultado no Slack"></textarea>
+      </label>
+      <label>Chave de IA (BYOK)
+        <input id="copilot-chave" type="password" placeholder="sk-..." autocomplete="off">
+      </label>
+      <label>Modelo (opcional)
+        <input id="copilot-modelo" placeholder="gpt-4o-mini" autocomplete="off">
+      </label>
+      <label class="campo-check">
+        <input type="checkbox" id="copilot-lembrar" checked>
+        Guardar a chave apenas nesta sessão do navegador
+      </label>
+      <p class="ajuda" id="copilot-ajuda">A chave vai no cabeçalho da requisição e nunca é gravada no banco.</p>
+      <p id="copilot-status" class="copilot-status"></p>
+      <div class="form-acoes">
+        <button type="submit" class="botao-primario">Gerar rascunho</button>
+        <button type="button" id="copilot-cancelar" class="botao-secundario">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast oculto" role="status"></div>
 
   <script src="/static/vendor/drawflow.min.js"></script>
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>

@@ -17,6 +17,7 @@ const estado = {
   editor: null,
   alterado: false,
   carregando: false,
+  copilot: null,
   tema: localStorage.getItem("capivara-cloud-tema") || "claro",
 };
 
@@ -25,7 +26,7 @@ let toastTimer = null;
 
 const TITULOS = {
   dashboard: ["Visão geral", "Seu centro de automação de APIs, em português."],
-  fluxos: ["Fluxos", "Monte o fluxo no canvas e configure cada bloco."],
+  fluxos: ["Fluxos", "Monte no canvas, configure cada bloco ou peça um rascunho à IA."],
   execucoes: ["Execuções", "Histórico completo com trace por passo."],
   agendamentos: ["Agendamentos", "Disparos automáticos por intervalo, horário ou cron — como na Lagoa."],
   conexoes: ["Conexões", "Conectores prontos e documentação pública."],
@@ -114,7 +115,7 @@ function trocarView(view, atualizarHash = true) {
 
 async function carregarTudo() {
   try {
-    const [config, conectores, workflows, estatisticas, credenciais, modelos, agendamentos] =
+    const [config, conectores, workflows, estatisticas, credenciais, modelos, agendamentos, statusCopilot] =
       await Promise.all([
         api("/api/config"),
         api("/api/conectores"),
@@ -123,6 +124,7 @@ async function carregarTudo() {
         api("/api/credenciais"),
         api("/api/credenciais/modelos"),
         api("/api/agendamentos"),
+        api("/api/copilot/status"),
       ]);
 
     estado.conectores = conectores.conectores || [];
@@ -132,6 +134,7 @@ async function carregarTudo() {
     estado.credenciais = credenciais || [];
     estado.modelos = modelos || [];
     estado.agendamentos = agendamentos || [];
+    estado.copilot = statusCopilot || null;
 
     document.getElementById("versao-app").textContent = `v${config.versao}`;
     document.getElementById("rodape-versao").textContent = `v${config.versao}`;
@@ -145,6 +148,7 @@ async function carregarTudo() {
     renderizarAgendamentos();
     renderizarEndpoints();
     atualizarStatusWorkflow();
+    atualizarSeloCopilot();
   } catch (erro) {
     console.error(erro);
     toast(`Não foi possível carregar a API: ${erro.message}`, "erro");
@@ -195,6 +199,82 @@ async function verificarConexao() {
     caixa.classList.add("offline");
     caixa.classList.remove("online");
     texto.textContent = "API offline";
+  }
+}
+
+function atualizarSeloCopilot() {
+  const selo = document.getElementById("ia-origem");
+  const ajuda = document.getElementById("copilot-ajuda");
+  if (!selo) return;
+  if (estado.copilot?.servidor_configurado) {
+    selo.textContent = "IA: servidor";
+    selo.title = `${estado.copilot.provider} · ${estado.copilot.modelo}`;
+    ajuda.textContent = "O servidor já tem uma chave configurada. Você ainda pode usar a sua.";
+  } else {
+    selo.textContent = "IA: sua chave";
+    selo.title = estado.copilot?.modelo || "BYOK";
+    ajuda.textContent = "A chave vai no cabeçalho da requisição e nunca é gravada no banco.";
+  }
+}
+
+function abrirCopilot() {
+  const dialog = document.getElementById("dialog-copilot");
+  const guardada = sessionStorage.getItem("capivara-cloud-ia-key") || "";
+  document.getElementById("copilot-chave").value = guardada;
+  document.getElementById("copilot-lembrar").checked = Boolean(guardada);
+  document.getElementById("copilot-status").textContent = "";
+  document.getElementById("copilot-status").classList.remove("erro");
+  dialog.showModal();
+  window.setTimeout(() => document.getElementById("copilot-descricao").focus(), 20);
+}
+
+function fecharCopilot() {
+  document.getElementById("dialog-copilot").close();
+}
+
+async function gerarComIA(evento) {
+  evento.preventDefault();
+  const botao = evento.submitter;
+  const descricao = document.getElementById("copilot-descricao").value.trim();
+  const chave = document.getElementById("copilot-chave").value.trim();
+  const modelo = document.getElementById("copilot-modelo").value.trim();
+  const lembrar = document.getElementById("copilot-lembrar").checked;
+  const status = document.getElementById("copilot-status");
+  if (!chave && !estado.copilot?.servidor_configurado) {
+    status.textContent = "Informe sua chave de IA ou configure uma chave no servidor.";
+    status.classList.add("erro");
+    return;
+  }
+  if (lembrar && chave) sessionStorage.setItem("capivara-cloud-ia-key", chave);
+  else sessionStorage.removeItem("capivara-cloud-ia-key");
+  status.classList.remove("erro");
+  status.textContent = "Gerando rascunho…";
+  if (botao) botao.disabled = true;
+  try {
+    const gerado = await api("/api/copilot/gerar", {
+      method: "POST",
+      headers: chave ? { "X-IA-Key": chave } : {},
+      body: JSON.stringify({ descricao, modelo: modelo || undefined }),
+    });
+    const workflow = await api("/api/workflows", {
+      method: "POST",
+      body: JSON.stringify({
+        nome: gerado.nome,
+        descricao: gerado.descricao,
+        grafo: gerado.grafo,
+      }),
+    });
+    estado.workflows.unshift(workflow);
+    document.getElementById("dialog-copilot").close();
+    await carregarWorkflow(workflow.id);
+    trocarView("fluxos");
+    toast("Rascunho gerado. Revise antes de salvar ou rodar.");
+  } catch (erro) {
+    status.textContent = erro.message;
+    status.classList.add("erro");
+    toast(erro.message, "erro");
+  } finally {
+    if (botao) botao.disabled = false;
   }
 }
 
@@ -1336,6 +1416,19 @@ function configurarEventos() {
   });
 
   document.getElementById("btn-novo-fluxo").addEventListener("click", novoWorkflow);
+  document.getElementById("btn-copilot").addEventListener("click", abrirCopilot);
+  document.getElementById("btn-fechar-copilot").addEventListener("click", fecharCopilot);
+  document.getElementById("copilot-cancelar").addEventListener("click", fecharCopilot);
+  document.getElementById("form-copilot").addEventListener("submit", gerarComIA);
+  document.getElementById("dialog-copilot").addEventListener("click", (evento) => {
+    if (evento.target === evento.currentTarget) fecharCopilot();
+  });
+  document.getElementById("dialog-copilot").addEventListener("close", () => {
+    if (!document.getElementById("copilot-lembrar").checked) {
+      document.getElementById("copilot-chave").value = "";
+      sessionStorage.removeItem("capivara-cloud-ia-key");
+    }
+  });
   document.getElementById("btn-salvar").addEventListener("click", () => salvarWorkflow());
   document.getElementById("btn-executar").addEventListener("click", executarWorkflow);
   document.getElementById("btn-excluir").addEventListener("click", excluirWorkflow);

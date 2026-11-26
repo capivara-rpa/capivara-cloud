@@ -22,6 +22,8 @@ credenciais cifradas e execução observável.
 - **Swagger** em `/docs`, ReDoc em `/redoc` e OpenAPI em `/openapi.json`.
 - Bloqueio de SSRF para URLs locais/privadas (liberável em desenvolvimento).
 - Tema claro/escuro e identidade visual Capivara.
+- **Copilot de fluxos (BYOK)**: descreva o processo em português e gere um
+  rascunho validado; veja `docs/COPILOT.md`.
 
 ## Rodar localmente
 
@@ -57,6 +59,7 @@ app/
   main.py        FastAPI, rotas e Swagger
   engine.py      motor de execução do grafo
   agendador.py   execuções recorrentes (intervalo/diário/cron)
+  copilot.py     geração e validação de rascunhos de fluxo
   connectors.py  catálogo + handlers dos conectores
   db.py          SQLite (workflows, execuções, passos, credenciais, agendamentos)
   security.py    Fernet, máscara de segredos
@@ -65,7 +68,7 @@ app/
   schemas.py     modelos Pydantic
   static/        UI (HTML/CSS/JS + Drawflow vendorizado)
 data/            banco, chave e saídas (gitignored)
-docs/            escopo, arquitetura e conectores
+docs/            escopo, arquitetura, conectores e copilot
 tests/           pytest
 ```
 
@@ -83,6 +86,8 @@ tests/           pytest
 | DELETE | `/api/workflows/{id}` | Remove fluxo |
 | POST | `/api/workflows/{id}/executar` | Executa manualmente |
 | POST | `/api/webhooks/{id}` | Dispara por webhook |
+| GET | `/api/copilot/status` | Provedor/modelo e se há chave no servidor |
+| POST | `/api/copilot/gerar` | Gera rascunho validado (header `X-IA-Key`) |
 | GET | `/api/agendamentos` | Lista agendamentos |
 | POST | `/api/agendamentos` | Cria agendamento recorrente |
 | POST | `/api/agendamentos/verificar` | Verifica agendamentos vencidos agora |
@@ -103,6 +108,16 @@ curl -X POST http://127.0.0.1:8787/api/webhooks/SEU_ID \
   -H "Content-Type: application/json" \
   -d '{"nome":"Arthur","email":"arthur@exemplo.com"}'
 ```
+
+## Copilot de fluxos
+
+No menu **Fluxos**, o botão **Gerar com IA** transforma uma descrição em um
+novo workflow Drawflow. O modelo recebe o catálogo de conectores, devolve JSON e
+o Cloud valida todos os nós, parâmetros e ligações antes de criar o rascunho.
+A chave é BYOK (vai no header `X-IA-Key` e não é gravada); opcionalmente o
+administrador pode configurar `CAPIVARA_AI_KEY` no servidor. O fluxo gerado **não**
+é executado automaticamente — revise e salve antes de rodar. Passo a passo,
+provedores compatíveis e solução de problemas em `docs/COPILOT.md`.
 
 ## Agendamentos
 
@@ -128,6 +143,11 @@ segundos; o botão **Verificar agora** força uma checagem imediata.
 | `CAPIVARA_CLOUD_AGENDADOR` | `true` | Liga a thread de agendamentos |
 | `CAPIVARA_CLOUD_INTERVALO_AGENDADOR` | `60` | Intervalo mínimo de verificação (segundos) |
 | `CAPIVARA_CLOUD_FUSO` | `America/Sao_Paulo` | Fuso para `diario` e `cron` |
+| `CAPIVARA_IA_PROVIDER` | `openai` | Adaptador de IA (`ollama` não envia Bearer) |
+| `CAPIVARA_IA_BASE_URL` | `https://api.openai.com/v1` | Base OpenAI-compatible |
+| `CAPIVARA_IA_MODELO` | `gpt-4o-mini` | Modelo padrão do Copilot |
+| `CAPIVARA_IA_TIMEOUT` | `60` | Timeout da chamada ao modelo (segundos) |
+| `CAPIVARA_AI_KEY` | vazio | Chave opcional no servidor; por padrão use BYOK |
 
 ## Segurança
 
@@ -135,6 +155,8 @@ segundos; o botão **Verificar agora** força uma checagem imediata.
 - A listagem devolve apenas valores mascarados.
 - Segredos conhecidos (`senha`, `token`, `headers`, etc.) são mascarados no trace.
 - URLs privadas/localhost são bloqueadas por padrão para reduzir SSRF.
+- No Copilot, a chave do navegador vai no header e não é persistida; se houver
+  chave no servidor, o custo/abuso fica sob responsabilidade de quem a configurou.
 - Para produção, coloque atrás de HTTPS, autenticação e uma chave gerenciada
   (KMS/keyring), não no arquivo local.
 
